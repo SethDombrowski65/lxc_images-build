@@ -2,310 +2,233 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 	"os/exec"
+	"regexp"
+	"sort"
 	"strings"
+	"time"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		return
+	if len(os.Args) < 4 {
+		log.Fatal("参数不足，需要: <distro> <version> <arch>")
 	}
 
-	action := os.Args[1]
-	
-	switch action {
-	case "build":
-		if len(os.Args) < 5 {
-			log.Fatal("用法: lxc-builder build <发行版> <版本> <架构>")
-		}
-		distro := os.Args[2]
-		version := os.Args[3]
-		arch := os.Args[4]
-		buildContainer(distro, version, arch)
-	case "publish":
-		if len(os.Args) < 3 {
-			log.Fatal("用法: lxc-builder publish <容器名>")
-		}
-		containerName := os.Args[2]
-		publishContainer(containerName)
-	default:
-		log.Fatalf("未知操作: %s", action)
-	}
-}
+	distro := os.Args[1]
+	version := os.Args[2]
+	arch := os.Args[3]
 
-func printUsage() {
-	fmt.Println("LXC容器构建器 - GitHub Actions专用")
-	fmt.Println("用法:")
-	fmt.Println("  lxc-builder build <发行版> <版本> <架构>    # 构建容器")
-	fmt.Println("  lxc-builder publish <容器名>                # 发布容器")
-	fmt.Println()
-	fmt.Println("支持的镜像:")
-	fmt.Println("  - centos 10-Stream amd64")
-	fmt.Println("  - centos 10-Stream arm64")
-	fmt.Println("  - centos 9-Stream amd64")
-	fmt.Println("  - centos 9-Stream arm64")
-}
+	log.Printf("开始获取 %s %s %s 的镜像链接", distro, version, arch)
 
-func buildContainer(distro, version, arch string) {
-	log.Printf("开始构建 %s %s %s 容器", distro, version, arch)
-	
-	// 1. 检测并下载镜像
-	imageURL := detectImage(distro, version, arch)
-	if imageURL == "" {
-		log.Fatalf("未找到 %s %s %s 的可用镜像", distro, version, arch)
-	}
-	
-	// 2. 创建容器
-	containerName := generateContainerName(distro, version, arch)
-	createContainer(containerName, imageURL)
-	
-	// 3. 配置SSH
-	setupSSH(containerName)
-	
-	// 4. 保存容器信息
-	saveContainerInfo(containerName, distro, version, arch)
-	
-	log.Printf("容器 %s 构建完成", containerName)
-}
+	baseURL := fmt.Sprintf("https://images.linuxcontainers.org/images/%s/%s/%s/default/", distro, version, arch)
+	log.Printf("1. 获取到基础链接: %s", baseURL)
 
-func detectImage(distro, version, arch string) string {
-	// 支持的镜像URL列表
-	supportedImages := map[string]string{
-		"centos/10-Stream/amd64": "https://images.linuxcontainers.org/images/centos/10-Stream/amd64/default/latest/rootfs.tar.xz",
-		"centos/10-Stream/arm64": "https://images.linuxcontainers.org/images/centos/10-Stream/arm64/default/latest/rootfs.tar.xz",
-		"centos/9-Stream/amd64":  "https://images.linuxcontainers.org/images/centos/9-Stream/amd64/default/latest/rootfs.tar.xz",
-		"centos/9-Stream/arm64":  "https://images.linuxcontainers.org/images/centos/9-Stream/arm64/default/latest/rootfs.tar.xz",
+	// 获取最新目录
+	latestDir, err := getLatestDirectory(baseURL)
+	if err != nil {
+		log.Fatalf("获取最新目录失败: %v", err)
 	}
-	
-	key := fmt.Sprintf("%s/%s/%s", distro, version, arch)
-	imageURL, exists := supportedImages[key]
-	if !exists {
-		log.Printf("不支持的镜像配置: %s", key)
-		return ""
+
+	log.Printf("2. 获取到最新目录: %s", latestDir)
+
+	// 获取两个文件的链接
+	rootfsURL := baseURL + latestDir + "rootfs.tar.xz"
+	metaURL := baseURL + latestDir + "meta.tar.xz"
+
+	log.Printf("3. 获取到rootfs文件: %s", rootfsURL)
+	log.Printf("4. 获取到meta文件: %s", metaURL)
+
+	// 检查文件是否存在
+	if checkURLExists(rootfsURL) {
+		log.Printf("5. rootfs文件验证成功")
+		fmt.Printf("rootfs URL: %s", rootfsURL)
+	} else {
+		log.Fatalf("rootfs文件不存在: %s", rootfsURL)
 	}
-	
-	// 检查镜像URL是否存在
-	if checkURLExists(imageURL) {
-		return imageURL
+
+	if checkURLExists(metaURL) {
+		log.Printf("6. meta文件验证成功")
+		fmt.Printf("meta URL: %s", metaURL)
+	} else {
+		log.Fatalf("meta文件不存在: %s", metaURL)
 	}
-	
-	// 如果rootfs.tar.xz不存在，尝试rootfs.squashfs
-	altURL := strings.Replace(imageURL, "rootfs.tar.xz", "rootfs.squashfs", 1)
-	if checkURLExists(altURL) {
-		return altURL
+
+	// 下载文件
+	log.Printf("7. 开始下载文件...")
+	if err := downloadFile(rootfsURL, "rootfs.tar.xz"); err != nil {
+		log.Fatalf("下载rootfs文件失败: %v", err)
 	}
-	
-	return ""
+	log.Printf("8. rootfs文件下载完成")
+
+	if err := downloadFile(metaURL, "meta.tar.xz"); err != nil {
+		log.Fatalf("下载meta文件失败: %v", err)
+	}
+	log.Printf("9. meta文件下载完成")
+
+	log.Printf("10. 所有文件下载完成")
+
+	// 导入LXC镜像
+	imageName := fmt.Sprintf("%s-%s-%s", distro, version, arch)
+	log.Printf("11. 开始导入LXC镜像: %s", imageName)
+
+	if err := importLXCImage("meta.tar.xz", "rootfs.tar.xz", imageName); err != nil {
+		log.Fatalf("导入LXC镜像失败: %v", err)
+	}
+	log.Printf("12. LXC镜像导入完成")
+
+	// 启动LXC容器
+	containerName := fmt.Sprintf("%s-container", imageName)
+	log.Printf("13. 启动LXC容器: %s", containerName)
+
+	if err := launchLXCContainer(imageName, containerName); err != nil {
+		log.Fatalf("启动LXC容器失败: %v", err)
+	}
+	log.Printf("14. LXC容器启动完成")
+
+	log.Printf("15. 所有操作完成")
 }
 
 func checkURLExists(url string) bool {
-	cmd := exec.Command("curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", url)
-	output, err := cmd.Output()
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Head(url)
 	if err != nil {
 		return false
 	}
-	
-	return strings.TrimSpace(string(output)) == "200"
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }
 
-func createContainer(containerName, imageURL string) {
-	log.Printf("创建容器 %s，使用镜像: %s", containerName, imageURL)
-	
-	// 下载镜像文件
-	imageFile := "/tmp/lxc-image.tar.xz"
-	downloadImage(imageURL, imageFile)
-	
-	// 创建容器配置
-	createContainerConfig(containerName)
-	
-	// 导入镜像
-	importImage(containerName, imageFile)
-	
-	// 启动容器
-	startContainer(containerName)
+func getLatestDirectory(baseURL string) (string, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("获取目录页面失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("目录页面不可用，状态码: %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("读取响应失败: %v", err)
+	}
+
+	content := string(body)
+
+	// 匹配目录链接模式：20250924_08:35/
+	pattern := `href="([0-9]{8}_[0-9]{2}%3A[0-9]{2}/)"`
+	re := regexp.MustCompile(pattern)
+	matches := re.FindAllStringSubmatch(content, -1)
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("未找到任何构建目录")
+	}
+
+	var directories []string
+	for _, match := range matches {
+		if len(match) > 1 {
+			// 解码URL编码的冒号
+			dir := strings.Replace(match[1], "%3A", ":", -1)
+			directories = append(directories, dir)
+		}
+	}
+
+	// 按日期时间排序，选择最新的目录
+	sort.Sort(sort.Reverse(sort.StringSlice(directories)))
+
+	if len(directories) == 0 {
+		return "", fmt.Errorf("未找到有效的构建目录")
+	}
+
+	return directories[0], nil
 }
 
-func downloadImage(url, outputPath string) {
-	log.Printf("下载镜像: %s", url)
-	cmd := exec.Command("curl", "-L", "-o", outputPath, url)
+func downloadFile(url, filename string) error {
+	log.Printf("下载 %s 到 %s", url, filename)
+
+	client := &http.Client{Timeout: 30 * time.Minute}
+	resp, err := client.Get(url)
+	if err != nil {
+		return fmt.Errorf("请求失败: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("下载失败，状态码: %d", resp.StatusCode)
+	}
+
+	// 创建文件
+	file, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("创建文件失败: %v", err)
+	}
+	defer file.Close()
+
+	// 显示下载进度
+	contentLength := resp.ContentLength
+	var downloaded int64
+	buffer := make([]byte, 32*1024) // 32KB buffer
+
+	for {
+		n, err := resp.Body.Read(buffer)
+		if n > 0 {
+			written, err := file.Write(buffer[:n])
+			if err != nil {
+				return fmt.Errorf("写入文件失败: %v", err)
+			}
+			downloaded += int64(written)
+
+			// 显示下载进度
+			if contentLength > 0 {
+				percent := float64(downloaded) / float64(contentLength) * 100
+				log.Printf("下载进度: %.2f%% (%d/%d bytes)", percent, downloaded, contentLength)
+			}
+		}
+
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("读取响应失败: %v", err)
+		}
+	}
+
+	log.Printf("文件下载完成: %s (%d bytes)", filename, downloaded)
+	return nil
+}
+
+func importLXCImage(metaFile, rootfsFile, imageName string) error {
+	log.Printf("执行: lxc image import %s %s --alias %s", metaFile, rootfsFile, imageName)
+
+	cmd := exec.Command("lxc", "image", "import", metaFile, rootfsFile, "--alias", imageName)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	
+
 	if err := cmd.Run(); err != nil {
-		log.Fatalf("下载镜像失败: %v", err)
+		return fmt.Errorf("镜像导入失败: %v", err)
 	}
+
+	log.Printf("镜像导入成功: %s", imageName)
+	return nil
 }
 
-func createContainerConfig(containerName string) {
-	configContent := fmt.Sprintf(`
-# 容器配置
-lxc.include = /usr/share/lxc/config/common.conf
-lxc.arch = x86_64
+func launchLXCContainer(imageName, containerName string) error {
+	log.Printf("执行: lxc launch %s %s", imageName, containerName)
 
-# 网络配置
-lxc.net.0.type = veth
-lxc.net.0.link = lxcbr0
-lxc.net.0.flags = up
-lxc.net.0.hwaddr = 00:16:3e:xx:xx:xx
+	cmd := exec.Command("lxc", "launch", imageName, containerName)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
-# 根文件系统
-lxc.rootfs.path = dir:/var/lib/lxc/%s/rootfs
-lxc.rootfs.mount = /var/lib/lxc/%s/rootfs
-`, containerName, containerName)
-	
-	configPath := fmt.Sprintf("/var/lib/lxc/%s/config", containerName)
-	err := os.WriteFile(configPath, []byte(configContent), 0644)
-	if err != nil {
-		log.Fatalf("创建容器配置失败: %v", err)
-	}
-}
-
-func importImage(containerName, imageFile string) {
-	// 创建根文件系统目录
-	rootfsPath := fmt.Sprintf("/var/lib/lxc/%s/rootfs", containerName)
-	os.MkdirAll(rootfsPath, 0755)
-	
-	// 解压镜像
-	cmd := exec.Command("tar", "-xf", imageFile, "-C", rootfsPath)
 	if err := cmd.Run(); err != nil {
-		log.Fatalf("解压镜像失败: %v", err)
+		return fmt.Errorf("容器启动失败: %v", err)
 	}
-}
 
-func startContainer(containerName string) {
-	cmd := exec.Command("lxc-start", "-n", containerName, "-d")
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("启动容器失败: %v", err)
-	}
-	
-	log.Printf("容器 %s 已启动", containerName)
-}
-
-func setupSSH(containerName string) {
-	log.Printf("为容器 %s 配置SSH", containerName)
-	
-	// 设置root密码
-	setRootPassword(containerName, "github-actions-123")
-	
-	// 安装SSH服务器
-	installSSHServer(containerName)
-	
-	// 配置SSH服务
-	configureSSH(containerName)
-	
-	// 重启SSH服务
-	restartSSH(containerName)
-	
-	log.Printf("容器 %s SSH配置完成", containerName)
-}
-
-func setRootPassword(containerName, password string) {
-	cmd := exec.Command("lxc-attach", "-n", containerName, "--", 
-		"bash", "-c", fmt.Sprintf("echo 'root:%s' | chpasswd", password))
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("设置root密码失败: %v", err)
-	}
-}
-
-func installSSHServer(containerName string) {
-	// 尝试不同的包管理器
-	commands := []string{
-		"apt-get update && apt-get install -y openssh-server",
-		"yum install -y openssh-server",
-		"apk add openssh-server",
-	}
-	
-	for _, cmdStr := range commands {
-		cmd := exec.Command("lxc-attach", "-n", containerName, "--", "bash", "-c", cmdStr)
-		if cmd.Run() == nil {
-			return
-		}
-	}
-	
-	log.Fatal("无法安装SSH服务器")
-}
-
-func configureSSH(containerName string) {
-	sshdConfig := `
-Port 22
-PermitRootLogin yes
-PasswordAuthentication yes
-PubkeyAuthentication yes
-X11Forwarding yes
-PrintMotd no
-AcceptEnv LANG LC_*
-Subsystem sftp /usr/lib/openssh/sftp-server
-`
-	
-	cmd := exec.Command("lxc-attach", "-n", containerName, "--", 
-		"bash", "-c", fmt.Sprintf("echo '%s' > /etc/ssh/sshd_config", sshdConfig))
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("配置SSH失败: %v", err)
-	}
-}
-
-func restartSSH(containerName string) {
-	commands := []string{
-		"systemctl restart ssh",
-		"systemctl restart sshd", 
-		"service ssh restart",
-		"service sshd restart",
-	}
-	
-	for _, cmdStr := range commands {
-		cmd := exec.Command("lxc-attach", "-n", containerName, "--", "bash", "-c", cmdStr)
-		if cmd.Run() == nil {
-			return
-		}
-	}
-	
-	log.Fatal("无法重启SSH服务")
-}
-
-func publishContainer(containerName string) {
-	log.Printf("发布容器 %s", containerName)
-	
-	// 停止容器
-	exec.Command("lxc-stop", "-n", containerName).Run()
-	
-	// 打包容器
-	packageContainer(containerName)
-	
-	// 上传到GitHub Releases或其他存储
-	uploadContainer(containerName)
-	
-	log.Printf("容器 %s 发布完成", containerName)
-}
-
-func packageContainer(containerName string) {
-	// 打包容器为tar文件
-	tarFile := fmt.Sprintf("%s.tar.gz", containerName)
-	cmd := exec.Command("tar", "-czf", tarFile, "-C", "/var/lib/lxc", containerName)
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("打包容器失败: %v", err)
-	}
-}
-
-func uploadContainer(containerName string) {
-	// 这里可以实现上传到GitHub Releases或其他存储的逻辑
-	// 在GitHub Actions中可以使用gh命令上传
-	log.Printf("容器 %s 已打包，准备上传", containerName)
-}
-
-func generateContainerName(distro, version, arch string) string {
-	// 生成唯一的容器名称
-	return fmt.Sprintf("%s-%s-%s-%d", distro, version, arch, os.Getpid())
-}
-
-func saveContainerInfo(containerName, distro, version, arch string) {
-	info := fmt.Sprintf("容器名称: %s\n发行版: %s\n版本: %s\n架构: %s\nSSH信息:\n  地址: 容器IP\n  端口: 22\n  用户: root\n  密码: github-actions-123\n", 
-		containerName, distro, version, arch)
-	
-	err := os.WriteFile("container-info.txt", []byte(info), 0644)
-	if err != nil {
-		log.Printf("保存容器信息失败: %v", err)
-	}
+	log.Printf("容器启动成功: %s", containerName)
+	return nil
 }
