@@ -1,0 +1,67 @@
+name: Test LXC Builder
+
+on:
+  workflow_dispatch:
+    inputs:
+      distro:
+        description: '发行版 (centos, ubuntu, debian)'
+        required: true
+        default: 'centos'
+        type: choice
+        options:
+          - centos
+          - ubuntu
+          - debian
+      version:
+        description: '版本 (9-Stream, 10-Stream, 22.04, etc)'
+        required: true
+        default: '9-Stream'
+        type: string
+      arch:
+        description: '架构 (amd64, arm64)'
+        required: true
+        default: 'arm64'
+        type: choice
+        options:
+          - amd64
+          - arm64
+
+jobs:
+  test-lxc-builder:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.21'
+        
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y curl wget snapd
+        
+    - name: Install and configure LXD
+      run: |
+        sudo snap install lxd
+        sudo lxd init --auto --storage-backend=dir
+        sudo chown root:lxd /var/snap/lxd/common/lxd/unix.socket
+        sudo chmod 660 /var/snap/lxd/common/lxd/unix.socket
+        
+    - name: Verify installations
+      run: |
+        echo "=== 验证软件安装 ==="
+        go version
+        curl --version
+        wget --version
+        snap version
+        lxc --version
+        lxd --version
+        
+    - name: Test LXC Builder
+      run: |
+        echo "测试参数: ${{ github.event.inputs.distro }} ${{ github.event.inputs.version }} ${{ github.event.inputs.arch }}"
+        go run main.go ${{ github.event.inputs.distro }} ${{ github.event.inputs.version }} ${{ github.event.inputs.arch }}
