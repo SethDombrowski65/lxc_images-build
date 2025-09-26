@@ -1,4 +1,4 @@
-name: 构建LXC容器
+name: Build LXC Containers
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
         default: true
 
 jobs:
-  构建-centos-10-stream-amd64:
+  build-centos-10-stream-amd64:
     runs-on: ubuntu-latest
     steps:
     - name: 检出代码
@@ -32,25 +32,25 @@ jobs:
         sudo lxc-checkconfig
 
     - name: 构建LXC构建器
-      run: go build -o lxc构建器
+      run: go build -o lxc-builder
 
     - name: 构建CentOS 10 Stream amd64容器
       run: |
-        ./lxc构建器 build centos 10-Stream amd64
+        ./lxc-builder build centos 10-Stream amd64
         
     - name: 测试SSH连接
       run: |
         sleep 30
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
-        echo "容器IP: $容器IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        container_ip=$(sudo lxc-info -n $container_name -i -H)
+        echo "容器IP: $container_ip"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$container_ip "echo 'SSH连接成功'"
 
     - name: 发布容器
       if: ${{ github.event.inputs.publish_all }}
       run: |
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc构建器 publish $容器名称
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc-builder publish $container_name
         
     - name: 上传容器制品
       if: ${{ github.event.inputs.publish_all }}
@@ -66,7 +66,7 @@ jobs:
         sudo lxc-ls --running | xargs -r -I {} sudo lxc-stop -n {}
         sudo lxc-ls | xargs -r -I {} sudo lxc-destroy -n {} -f
 
-  构建-centos-10-stream-arm64:
+  build-centos-10-stream-arm64:
     runs-on: ubuntu-latest
     steps:
     - name: 检出代码
@@ -88,25 +88,25 @@ jobs:
         sudo lxc-checkconfig
 
     - name: 构建LXC构建器
-      run: go build -o lxc构建器
+      run: go build -o lxc-builder
 
     - name: 构建CentOS 10 Stream arm64容器
       run: |
-        ./lxc构建器 build centos 10-Stream arm64
+        ./lxc-builder build centos 10-Stream arm64
         
     - name: 测试SSH连接
       run: |
         sleep 30
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
-        echo "容器IP: $容器IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        container_ip=$(sudo lxc-info -n $container_name -i -H)
+        echo "容器IP: $container_ip"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$container_ip "echo 'SSH连接成功'"
 
     - name: 发布容器
       if: ${{ github.event.inputs.publish_all }}
       run: |
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc构建器 publish $容器名称
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc-builder publish $container_name
         
     - name: 上传容器制品
       if: ${{ github.event.inputs.publish_all }}
@@ -122,7 +122,7 @@ jobs:
         sudo lxc-ls --running | xargs -r -I {} sudo lxc-stop -n {}
         sudo lxc-ls | xargs -r -I {} sudo lxc-destroy -n {} -f
 
-  构建-centos-9-stream-amd64:
+  build-centos-9-stream-amd64:
     runs-on: ubuntu-latest
     steps:
     - name: 检出代码
@@ -144,25 +144,25 @@ jobs:
         sudo lxc-checkconfig
 
     - name: 构建LXC构建器
-      run: go build -o lxc构建器
+      run: go build -o lxc-builder
 
     - name: 构建CentOS 9 Stream amd64容器
       run: |
-        ./lxc构建器 build centos 9-Stream amd64
+        ./lxc-builder build centos 9-Stream amd64
         
     - name: 测试SSH连接
       run: |
         sleep 30
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
-        echo "容器IP: $容器IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        container_ip=$(sudo lxc-info -n $container_name -i -H)
+        echo "容器IP: $container_ip"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$container_ip "echo 'SSH连接成功'"
 
     - name: 发布容器
       if: ${{ github.event.inputs.publish_all }}
       run: |
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc构建器 publish $容器名称
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc-builder publish $container_name
         
     - name: 上传容器制品
       if: ${{ github.event.inputs.publish_all }}
@@ -178,7 +178,7 @@ jobs:
         sudo lxc-ls --running | xargs -r -I {} sudo lxc-stop -n {}
         sudo lxc-ls | xargs -r -I {} sudo lxc-destroy -n {} -f
 
-  构建-centos-9-stream-arm64:
+  build-centos-9-stream-arm64:
     runs-on: ubuntu-latest
     steps:
     - name: 检出代码
@@ -200,25 +200,25 @@ jobs:
         sudo lxc-checkconfig
 
     - name: 构建LXC构建器
-      run: go build -o lxc构建器
+      run: go build -o lxc-builder
 
     - name: 构建CentOS 9 Stream arm64容器
       run: |
-        ./lxc构建器 build centos 9-Stream arm64
+        ./lxc-builder build centos 9-Stream arm64
         
     - name: 测试SSH连接
       run: |
         sleep 30
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
-        echo "容器IP: $容器IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        container_ip=$(sudo lxc-info -n $container_name -i -H)
+        echo "容器IP: $container_ip"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$container_ip "echo 'SSH连接成功'"
 
     - name: 发布容器
       if: ${{ github.event.inputs.publish_all }}
       run: |
-        容器名称=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc构建器 publish $容器名称
+        container_name=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc-builder publish $container_name
         
     - name: 上传容器制品
       if: ${{ github.event.inputs.publish_all }}
