@@ -1,240 +1,234 @@
-name: Build LXC Containers
+name: 构建LXC容器
 
 on:
   workflow_dispatch:
     inputs:
-      publish_all:
+      发布所有镜像:
         description: '是否发布所有构建的镜像'
         required: false
         type: boolean
         default: true
 
 jobs:
-  build-centos-10-stream-amd64:
+  构建-centos-10-stream-amd64:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: 检出代码
       uses: actions/checkout@v4
 
-    - name: Set up Go
+    - name: 设置Go环境
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
 
-    - name: Install LXC dependencies
+    - name: 安装LXC依赖
       run: |
         sudo apt-get update
         sudo apt-get install -y lxc lxc-templates bridge-utils curl tar sshpass
 
-    - name: Configure LXC environment
+    - name: 配置LXC环境
       run: |
         sudo systemctl start lxc
         sudo lxc-checkconfig
 
-    - name: Build LXC builder
-      run: go build -o lxc-builder
+    - name: 构建LXC构建器
+      run: go build -o lxc构建器
 
-    - name: Build CentOS 10 Stream amd64 container
+    - name: 构建CentOS 10 Stream amd64容器
       run: |
-        ./lxc-builder build centos 10-Stream amd64
+        ./lxc构建器 build centos 10-Stream amd64
         
-    - name: Test SSH connection
+    - name: 测试SSH连接
       run: |
         sleep 30
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        CONTAINER_IP=$(sudo lxc-info -n $CONTAINER_NAME -i -H)
-        echo "Container IP: $CONTAINER_IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$CONTAINER_IP "echo 'SSH connection successful'"
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
+        echo "容器IP: $容器IP"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
-    - name: Publish container
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 发布容器
+      if: ${{ github.event.inputs.发布所有镜像 }}
       run: |
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc-builder publish $CONTAINER_NAME
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc构建器 publish $容器名称
         
-    - name: Upload container artifact
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 上传容器制品
+      if: ${{ github.event.inputs.发布所有镜像 }}
       uses: actions/upload-artifact@v4
       with:
-        name: lxc-container-centos-10-stream-amd64
+        name: lxc容器-centos-10-stream-amd64
         path: "*.tar.gz"
         retention-days: 7
 
-    - name: Cleanup
+    - name: 清理资源
       if: always()
       run: |
         sudo lxc-ls --running | xargs -r -I {} sudo lxc-stop -n {}
         sudo lxc-ls | xargs -r -I {} sudo lxc-destroy -n {} -f
 
-  build-centos-10-stream-arm64:
+  构建-centos-10-stream-arm64:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: 检出代码
       uses: actions/checkout@v4
 
-    - name: Set up Go
+    - name: 设置Go环境
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
 
-    - name: Install LXC dependencies
+    - name: 安装LXC依赖
       run: |
         sudo apt-get update
         sudo apt-get install -y lxc lxc-templates bridge-utils curl tar sshpass
 
-    - name: Configure LXC environment
+    - name: 配置LXC环境
       run: |
         sudo systemctl start lxc
         sudo lxc-checkconfig
 
-    - name: Build LXC builder
-      run: go build -o lxc-builder
+    - name: 构建LXC构建器
+      run: go build -o lxc构建器
 
-    - name: Build CentOS 10 Stream arm64 container
+    - name: 构建CentOS 10 Stream arm64容器
       run: |
-        ./lxc-builder build centos 10-Stream arm64
+        ./lxc构建器 build centos 10-Stream arm64
         
-    - name: Test SSH connection
+    - name: 测试SSH连接
       run: |
         sleep 30
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        CONTAINER_IP=$(sudo lxc-info -n $CONTAINER_NAME -i -H)
-        echo "Container IP: $CONTAINER_IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$CONTAINER_IP "echo 'SSH connection successful'"
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
+        echo "容器IP: $容器IP"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
-    - name: Publish container
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 发布容器
+      if: ${{ github.event.inputs.发布所有镜像 }}
       run: |
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc-builder publish $CONTAINER_NAME
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc构建器 publish $容器名称
         
-    - name: Upload container artifact
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 上传容器制品
+      if: ${{ github.event.inputs.发布所有镜像 }}
       uses: actions/upload-artifact@v4
       with:
-        name: lxc-container-centos-10-stream-arm64
+        name: lxc容器-centos-10-stream-arm64
         path: "*.tar.gz"
         retention-days: 7
 
-    - name: Cleanup
+    - name: 清理资源
       if: always()
       run: |
         sudo lxc-ls --running | xargs -r -I {} sudo lxc-stop -n {}
         sudo lxc-ls | xargs -r -I {} sudo lxc-destroy -n {} -f
 
-  build-centos-9-stream-amd64:
+  构建-centos-9-stream-amd64:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: 检出代码
       uses: actions/checkout@v4
 
-    - name: Set up Go
+    - name: 设置Go环境
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
 
-    - name: Install LXC dependencies
+    - name: 安装LXC依赖
       run: |
         sudo apt-get update
         sudo apt-get install -y lxc lxc-templates bridge-utils curl tar sshpass
 
-    - name: Configure LXC environment
+    - name: 配置LXC环境
       run: |
         sudo systemctl start lxc
         sudo lxc-checkconfig
-        sudo brctl addbr lxcbr0 || true
-        sudo ip addr add 10.0.3.1/24 dev lxcbr0
-        sudo ip link set lxcbr0 up
 
-    - name: Build LXC builder
-      run: go build -o lxc-builder
+    - name: 构建LXC构建器
+      run: go build -o lxc构建器
 
-    - name: Build CentOS 9 Stream amd64 container
+    - name: 构建CentOS 9 Stream amd64容器
       run: |
-        ./lxc-builder build centos 9-Stream amd64
+        ./lxc构建器 build centos 9-Stream amd64
         
-    - name: Test SSH connection
+    - name: 测试SSH连接
       run: |
         sleep 30
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        CONTAINER_IP=$(sudo lxc-info -n $CONTAINER_NAME -i -H)
-        echo "Container IP: $CONTAINER_IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$CONTAINER_IP "echo 'SSH connection successful'"
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
+        echo "容器IP: $容器IP"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
-    - name: Publish container
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 发布容器
+      if: ${{ github.event.inputs.发布所有镜像 }}
       run: |
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc-builder publish $CONTAINER_NAME
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc构建器 publish $容器名称
         
-    - name: Upload container artifact
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 上传容器制品
+      if: ${{ github.event.inputs.发布所有镜像 }}
       uses: actions/upload-artifact@v4
       with:
-        name: lxc-container-centos-9-stream-amd64
+        name: lxc容器-centos-9-stream-amd64
         path: "*.tar.gz"
         retention-days: 7
 
-    - name: Cleanup
+    - name: 清理资源
       if: always()
       run: |
         sudo lxc-ls --running | xargs -r -I {} sudo lxc-stop -n {}
         sudo lxc-ls | xargs -r -I {} sudo lxc-destroy -n {} -f
 
-  build-centos-9-stream-arm64:
+  构建-centos-9-stream-arm64:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout code
+    - name: 检出代码
       uses: actions/checkout@v4
 
-    - name: Set up Go
+    - name: 设置Go环境
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
 
-    - name: Install LXC dependencies
+    - name: 安装LXC依赖
       run: |
         sudo apt-get update
         sudo apt-get install -y lxc lxc-templates bridge-utils curl tar sshpass
 
-    - name: Configure LXC environment
+    - name: 配置LXC环境
       run: |
         sudo systemctl start lxc
         sudo lxc-checkconfig
-        sudo brctl addbr lxcbr0 || true
-        sudo ip addr add 10.0.3.1/24 dev lxcbr0
-        sudo ip link set lxcbr0 up
 
-    - name: Build LXC builder
-      run: go build -o lxc-builder
+    - name: 构建LXC构建器
+      run: go build -o lxc构建器
 
-    - name: Build CentOS 9 Stream arm64 container
+    - name: 构建CentOS 9 Stream arm64容器
       run: |
-        ./lxc-builder build centos 9-Stream arm64
+        ./lxc构建器 build centos 9-Stream arm64
         
-    - name: Test SSH connection
+    - name: 测试SSH连接
       run: |
         sleep 30
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        CONTAINER_IP=$(sudo lxc-info -n $CONTAINER_NAME -i -H)
-        echo "Container IP: $CONTAINER_IP"
-        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$CONTAINER_IP "echo 'SSH connection successful'"
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        容器IP=$(sudo lxc-info -n $容器名称 -i -H)
+        echo "容器IP: $容器IP"
+        sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
-    - name: Publish container
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 发布容器
+      if: ${{ github.event.inputs.发布所有镜像 }}
       run: |
-        CONTAINER_NAME=$(ls /var/lib/lxc/ | grep centos)
-        ./lxc-builder publish $CONTAINER_NAME
+        容器名称=$(ls /var/lib/lxc/ | grep centos)
+        ./lxc构建器 publish $容器名称
         
-    - name: Upload container artifact
-      if: ${{ github.event.inputs.publish_all }}
+    - name: 上传容器制品
+      if: ${{ github.event.inputs.发布所有镜像 }}
       uses: actions/upload-artifact@v4
       with:
-        name: lxc-container-centos-9-stream-arm64
+        name: lxc容器-centos-9-stream-arm64
         path: "*.tar.gz"
         retention-days: 7
 
-    - name: Cleanup
+    - name: 清理资源
       if: always()
       run: |
         sudo lxc-ls --running | xargs -r -I {} sudo lxc-stop -n {}
