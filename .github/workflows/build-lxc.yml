@@ -3,7 +3,7 @@ name: 构建LXC容器
 on:
   workflow_dispatch:
     inputs:
-      发布所有镜像:
+      publish_all:
         description: '是否发布所有构建的镜像'
         required: false
         type: boolean
@@ -47,13 +47,13 @@ jobs:
         sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
     - name: 发布容器
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       run: |
         容器名称=$(ls /var/lib/lxc/ | grep centos)
         ./lxc构建器 publish $容器名称
         
     - name: 上传容器制品
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       uses: actions/upload-artifact@v4
       with:
         name: lxc容器-centos-10-stream-amd64
@@ -103,13 +103,13 @@ jobs:
         sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
     - name: 发布容器
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       run: |
         容器名称=$(ls /var/lib/lxc/ | grep centos)
         ./lxc构建器 publish $容器名称
         
     - name: 上传容器制品
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       uses: actions/upload-artifact@v4
       with:
         name: lxc容器-centos-10-stream-arm64
@@ -159,13 +159,13 @@ jobs:
         sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
     - name: 发布容器
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       run: |
         容器名称=$(ls /var/lib/lxc/ | grep centos)
         ./lxc构建器 publish $容器名称
         
     - name: 上传容器制品
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       uses: actions/upload-artifact@v4
       with:
         name: lxc容器-centos-9-stream-amd64
@@ -215,13 +215,13 @@ jobs:
         sshpass -p "github-actions-123" ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@$容器IP "echo 'SSH连接成功'"
 
     - name: 发布容器
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       run: |
         容器名称=$(ls /var/lib/lxc/ | grep centos)
         ./lxc构建器 publish $容器名称
         
     - name: 上传容器制品
-      if: ${{ github.event.inputs.发布所有镜像 }}
+      if: ${{ github.event.inputs.publish_all }}
       uses: actions/upload-artifact@v4
       with:
         name: lxc容器-centos-9-stream-arm64
