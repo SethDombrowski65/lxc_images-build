@@ -202,6 +202,15 @@ jobs:
     - name: 构建LXC构建器
       run: go build -o lxc-builder
 
+    - name: 调试镜像URL
+      run: |
+        echo "测试镜像服务器连接性..."
+        curl -I "https://images.linuxcontainers.org/images/centos/9-Stream/arm64/default/"
+        echo "获取目录列表..."
+        curl -s "https://images.linuxcontainers.org/images/centos/9-Stream/arm64/default/" | head -20
+        echo "测试镜像文件..."
+        curl -I "https://images.linuxcontainers.org/images/centos/9-Stream/arm64/default/20250924_08%3A35/rootfs.tar.xz"
+        
     - name: 构建CentOS 9 Stream arm64容器
       run: |
         ./lxc-builder build centos 9-Stream arm64
